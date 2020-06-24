@@ -1,10 +1,12 @@
 import numpy as np
 from skmultiflow.core.base import StreamModel
+#from skmultiflow.core.base import BaseEstimator
 from skmultiflow.trees import HoeffdingTree
 from skmultiflow.utils.data_structures import InstanceWindow, FastBuffer
 
 
 class Goowe(StreamModel):
+#class Goowe(BaseEstimator):
     """ GOOWE (Geometrically Optimum Online Weighted Ensemble), as it is
     described in Bonab and Can (2017). Common notation in the code is
     as follows:
@@ -26,11 +28,11 @@ class Goowe(StreamModel):
     """
 
     def __init__(self, n_max_components: int = 10,
-                 chunk_size: int = 500, window_size: int = 100):
+                 chunk_size: int = 500, window_size: int = 100, logging = True):
         super().__init__()
         self._num_of_max_classifiers = n_max_components
         self._chunk_size = chunk_size
-
+        self._Logging = logging
         self._num_of_current_classifiers = 0
         self._num_of_processed_instances = 0
         self._classifiers = np.empty((self._num_of_max_classifiers),
@@ -61,16 +63,16 @@ class Goowe(StreamModel):
         # self._sliding_window_ensemble_preds =FastBuffer(max_size=window_size)
         # self._sliding_window_truths = FastBuffer(max_size=window_size)
 
-    def prepare_post_analysis_req(self, num_features, num_targets,
-                                  num_classes, target_values, record=False):
+    def prepare_post_analysis_req(self, num_features, num_targets, num_classes, target_values, record=False):
         # Need to get the dataset information but we do not want to
         # take it as an argument to the classifier itself, nor we do want to
         # ask it at each data instance. Hence we take dataset info from user
         # explicitly to create _chunk_data entries.
-        self._chunk_data = InstanceWindow(n_features=num_features,
-                                          n_targets=num_targets,
-                                          max_size=self._chunk_size)
-
+        #chunk_size = self._chunk_size
+        self._chunk_data = InstanceWindow(n_features = num_features,
+                                          n_targets = num_targets,
+                                          max_size = self._chunk_size)
+        #self._chunk_data = chunk_data
         # num_targets shows how many columns you want to predict in the data.
         # num classes is eqv to possible number of values that that column
         # can have.
@@ -116,9 +118,9 @@ class Goowe(StreamModel):
             # print(preds)
             # print("Component {}'s Prediction: {}".format(k, kth_comp_pred))
             preds[k, :] = kth_comp_pred[0]
-
-        print('Component Predictions:')
-        print(preds)
+        if(self._Logging):
+            print('Component Predictions:')
+            print(preds)
         return preds
 
     def _adjust_weights(self):
@@ -126,6 +128,7 @@ class Goowe(StreamModel):
         described in Bonab and Can (2017).
         """
         # Prepare variables for Weight Adjustment
+        # print('number of current classifiers: {}'.format(self._num_of_current_classifiers))
         A = np.zeros(shape=(self._num_of_current_classifiers,
                             self._num_of_current_classifiers))
         d = np.zeros(shape=(self._num_of_current_classifiers,))
@@ -234,8 +237,9 @@ class Goowe(StreamModel):
 
             # Normalizing weigths to simplify numbers
             self._normalize_weights_softmax()       # maybe useful. we'll see.
-            print("After normalization weights: ")
-            print(self._weights)
+            if(self._Logging):
+                print("After normalization weights: ")
+                print(self._weights)
         # Ensemble maintenance is done. Now train all classifiers
         # in the ensemble from the current chunk.
         # Can be parallelized.
@@ -243,12 +247,16 @@ class Goowe(StreamModel):
         data_truths = self._chunk_data.get_targets_matrix()
         data_truths = data_truths.astype(int).flatten()
 
-        print("Starting training the components with the current chunk...")
-        for k in range(self._num_of_current_classifiers):
-            print("Training classifier {}".format(k))
-            self._classifiers[k].partial_fit(data_features, data_truths,
-                                             classes=self._target_values)
-        print("Training the components with the current chunk completed...")
+        if(self._Logging):
+            print("Starting training the components with the current chunk...")
+            for k in range(self._num_of_current_classifiers):
+                print("Training classifier {}".format(k))
+                self._classifiers[k].partial_fit(data_features, data_truths,
+                                            classes=self._target_values)
+            print("Training the components with the current chunk completed...")
+        else:
+            for k in range(self._num_of_current_classifiers):
+                self._classifiers[k].partial_fit(data_features, data_truths, classes=self._target_values)
         return
 
     def _record_truths_this_chunk(self):
@@ -359,8 +367,9 @@ class Goowe(StreamModel):
                 relevance_scores = self.predict_proba(X[i])
                 predictions.append(np.argmax(relevance_scores))
         # print(np.argmax(relevance_scores))
-        print('Ensemble Prediction:')
-        print(np.array(predictions))
+        if(self._Logging):
+            print('Ensemble Prediction:')
+            print(np.array(predictions))
         return np.array(predictions) #, one_hot
 
     def predict_proba(self, X):

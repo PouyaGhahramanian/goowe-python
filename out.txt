@@ -1,0 +1,7 @@
+# TEST CONFIGURATION BEGIN
+# FileStream(filename='sea_stream.csv', target_idx=-1, n_targets=1, cat_features=None)
+# [GOOWE] The Ensemble GOOWE (Bonab and Can, 2017) with - n_max_components: 15 - num_of_current_components: 0 - chunk_size: 500 - num_dimensions_in_label_space(num_classes): 2 - recording: False
+# [HT] HoeffdingTreeClassifier(binary_split=False, grace_period=200, leaf_prediction='nba', max_byte_size=33554432, memory_estimate_period=1000000, nb_threshold=0, no_preprune=False, nominal_attributes=None, remove_poor_atts=False, split_confidence=1e-07, split_criterion='info_gain', stop_mem_management=False, tie_threshold=0.05)
+# EvaluatePrequential(batch_size=1, data_points_for_classification=False, max_samples=100000, max_time=1000, metrics=['accuracy', 'kappa'], n_wait=500, output_file='out.txt', pretrain_size=500, restart_stream=True, show_plot=True)
+# TEST CONFIGURATION END
+id,mean_acc_[GOOWE],current_acc_[GOOWE],mean_acc_[HT],current_acc_[HT],mean_kappa_[GOOWE],current_kappa_[GOOWE],mean_kappa_[HT],current_kappa_[HT]
