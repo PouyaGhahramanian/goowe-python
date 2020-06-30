@@ -140,8 +140,8 @@ class Goowe(StreamModel):
         for i in range(len(y_all)):
             class_index = y_all[i]
             comp_preds = self._chunk_comp_preds.get_next_element()
-            # print("{} components predictions:".format(i))
-            # print(comp_preds)
+            #print("{} components predictions:".format(i))
+            #print(comp_preds)
 
             A = A + comp_preds.dot(comp_preds.T)
             d = d + comp_preds[0][class_index]
@@ -391,11 +391,16 @@ class Goowe(StreamModel):
         # get only the useful weights
         weights = weights[:self._num_of_current_classifiers]
         components_preds = self._get_components_predictions_for_instance(X)
-
+        #print('*****************************')
+        #print(components_preds)
+        #print('*****************************')
         # Save individual component predictions and ensemble prediction
         # for later analysis.
         self._chunk_comp_preds.add_element([components_preds])
 
+        #print(weights)
+        #print(components_preds)
+        #print(self.get_classifiers())
         weighted_ensemble_vote = np.dot(weights, components_preds)
         # print("Weighted Ensemble vote: {}".format(weighted_ensemble_vote))
         self._chunk_ensm_preds.add_element(weighted_ensemble_vote)
@@ -419,9 +424,19 @@ class Goowe(StreamModel):
     def get_class_type(self):
         pass
 
-    # Some getters..
+    # Some getters and setters..
     def get_number_of_current_classifiers(self):
         return self._num_of_current_classifiers
 
     def get_number_of_max_classifiers(self):
         return self._num_of_max_classifiers
+
+    # Helper methods for GooweMS
+    def get_classifiers(self):
+        return self._classifiers
+
+    def set_classifiers(self, classifiers):
+        self._classifiers = classifiers
+
+    def get_weights(self):
+        return self._weights
