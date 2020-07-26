@@ -1,7 +1,8 @@
 from skmultiflow.data.file_stream import FileStream
 import numpy as np
 from Goowe import Goowe
-from skmultiflow.data import SEAGenerator
+#from skmultiflow.data import ConceptDriftStream
+from skmultiflow.data import RandomRBFGeneratorDrift
 import logging
 from GooweMS import GooweMS
 import random
@@ -9,20 +10,33 @@ import random
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 # Prepare the data stream
-stream_1 = SEAGenerator()
-stream_2 = SEAGenerator()
-stream_3 = SEAGenerator()
+#, num_drift_centroids=5
+#DRIFT_SPEED = 0.01
+#DRIFT_TYPE = 'fast'
+DRIFT_SPEED = 0.0001
+DRIFT_TYPE = 'slow'
+ENSEMBLE_TYPE = 'av'
+stream_1 = RandomRBFGeneratorDrift(model_random_state=None, sample_random_state=None, n_classes=4, n_features=20, n_centroids=50, change_speed=DRIFT_SPEED)
+stream_2 = RandomRBFGeneratorDrift(model_random_state=None, sample_random_state=None, n_classes=4, n_features=20, n_centroids=50, change_speed=DRIFT_SPEED)
+stream_3 = RandomRBFGeneratorDrift(model_random_state=None, sample_random_state=None, n_classes=4, n_features=20, n_centroids=50, change_speed=DRIFT_SPEED)
 stream_1.prepare_for_use()
 stream_2.prepare_for_use()
 stream_3.prepare_for_use()
 
-ENSEMBLE_TYPE = 'av'
 instances_num = 10000
 instances_counter = 0
+
+### Arrays for storing accuracy values for Streams
+accuracies_1 = []
+accuracies_2 = []
+accuracies_3_mv = []
+accuracies_3_av = []
+accuracies_3_goowe = []
+
 num_features = stream_1.n_features
 num_targets = stream_1.n_targets
-num_classes = 2
-target_values = [0., 1.]
+num_classes = len(stream_1.target_values)
+target_values = stream_1.target_values
 logging.info("\n\tStreams are generated and prepared for use.\n\tNumber of features: {0} - Number of targets: {1} - Number of classes: {2} - Target values: {3}"
              .format(num_features, num_targets, num_classes, target_values))
 
@@ -31,16 +45,9 @@ CHUNK_SIZE = 500        # User-specified
 WINDOW_SIZE = 100       # User-specified
 
 ### Probability of drift in streams
-p1_threshold = 0.7
-p2_threshold = 0.8
-p3_threshold = 0.75
-
-### Arrays for storing accuracy values for Streams
-accuracies_1 = []
-accuracies_2 = []
-accuracies_3_mv = []
-accuracies_3_av = []
-accuracies_3_goowe = []
+p1_threshold = 0.8
+p2_threshold = 0.9
+p3_threshold = 0.85
 
 # Initialize the ensemble
 goowe_1 = Goowe(n_max_components=N_MAX_CLASSIFIERS,
@@ -125,7 +132,7 @@ for i in range(CHUNK_SIZE):
      goowe_3.update(X_3, y_3, 1, 1)
 
 # Now, for the remaining instances, do ITTT (Interleaved Test Then Train).
-while(stream_1.has_more_samples() and stream_2.has_more_samples() and stream_3.has_more_samples() and instances_counter < instances_num):
+while(stream_1.has_more_samples() and stream_2.has_more_samples() and instances_counter < instances_num):
 
     if(instances_counter % CHUNK_SIZE == 0):
         accuracy_1 = 0.0
@@ -143,19 +150,18 @@ while(stream_1.has_more_samples() and stream_2.has_more_samples() and stream_3.h
         true_predictions_3_goowe = 0.0
         total = 0.
 
-
     ### Generating drifts by generating random values for each Stream
     p1 = random.random()
     p2 = random.random()
     p3 = random.random()
     if p1 > p1_threshold:
-        stream_1.generate_drift()
+        #stream_1.generate_drift()
         logging.info('\n\tDrift generatoed for STREAM 1')
     if p2 > p2_threshold:
-        stream_2.generate_drift()
+        #stream_2.generate_drift()
         logging.info('\n\tDrift generatoed for STREAM 2')
     if p3 > p3_threshold:
-        stream_3.generate_drift()
+        #stream_3.generate_drift()
         logging.info('\n\tDrift generatoed for STREAM 3')
     total += 1
     cur_1 = stream_1.next_sample()
@@ -184,14 +190,11 @@ while(stream_1.has_more_samples() and stream_2.has_more_samples() and stream_3.h
     accuracies_3_mv.append(accuracy_3_mv)
     accuracies_3_av.append(accuracy_3_av)
     accuracies_3_goowe.append(accuracy_3_goowe)
-    #np.save('results/agrawal_'+ENSEMBLE_TYPE+'_accuracies_1.npy', np.asarray(accuracies_1))
-    #np.save('results/agrawal_'+ENSEMBLE_TYPE+'_accuracies_2.npy', np.asarray(accuracies_2))
-    #np.save('results/agrawal_'+ENSEMBLE_TYPE+'_accuracies_3.npy', np.asarray(accuracies_3))
-    np.save('results/sea_accuracies_1.npy', np.asarray(accuracies_1))
-    np.save('results/sea_accuracies_2.npy', np.asarray(accuracies_2))
-    np.save('results/sea_mv_accuracies_3.npy', np.asarray(accuracies_3_mv))
-    np.save('results/sea_av_accuracies_3.npy', np.asarray(accuracies_3_av))
-    np.save('results/sea_goowe_accuracies_3.npy', np.asarray(accuracies_3_goowe))
+    np.save('results/rbf_'+DRIFT_TYPE+'_accuracies_1.npy', np.asarray(accuracies_1))
+    np.save('results/rbf_'+DRIFT_TYPE+'_accuracies_2.npy', np.asarray(accuracies_2))
+    np.save('results/rbf_'+DRIFT_TYPE+'_mv_accuracies_3.npy', np.asarray(accuracies_3_mv))
+    np.save('results/rbf_'+DRIFT_TYPE+'_av_accuracies_3.npy', np.asarray(accuracies_3_av))
+    np.save('results/rbf_'+DRIFT_TYPE+'_goowe_accuracies_3.npy', np.asarray(accuracies_3_goowe))
     print('\tSTREAM 1 :: Data instance: {} - Accuracy: {}'.format(int(total), round(accuracy_1*100.0, 3)))
     print('\tSTREAM 2 :: Data instance: {} - Accuracy: {}'.format(int(total), round(accuracy_2*100.0, 3)))
     print('\tSTREAM 3 :: Data instance: {} - Accuracies: MV: {} - AV: {} - Goowe: {}'.format(int(total),

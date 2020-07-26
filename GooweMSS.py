@@ -7,6 +7,7 @@ class GooweMS(Goowe):
     # TODO: Number of Base Streams is 2.
     # Implementation for more than 2 base streams can be done
     # by changing self._goowe_1 and self._goowe_2 with a list of Goowe objects.
+    '''
     def __init__(self, goowe_1, goowe_2, n_max_components: int = 10,
                  chunk_size: int = 500, window_size: int = 100, logging = True, num_streams = 2):
         super().__init__(n_max_components, chunk_size, window_size, logging)
@@ -19,7 +20,8 @@ class GooweMS(Goowe):
         super().__init__(n_max_components, chunk_size, window_size, logging)
         self._num_streams = num_streams
         self._goowes = goowes
-    '''
+        assert num_streams == len(goowes),  'Number of source Goowes is not equal to number of streams.'
+        self._classifier_indices = []
     '''
     def __init__(self, n_max_components: int = 10,
                  chunk_size: int = 500, window_size: int = 100, logging = True, num_streams = 2):
@@ -43,7 +45,7 @@ class GooweMS(Goowe):
 
             if(self._num_of_processed_instances % self._chunk_size == 0):
                 print("Instance {}".format(self._num_of_processed_instances))
-                self._update_classifiers(clf_num_1 = 1, clf_num_2 = 1)
+                self._update_classifiers(clf_nums = [])
 
         elif(len(X) > 1):
             for i in range(len(X)):
@@ -55,7 +57,7 @@ class GooweMS(Goowe):
 
                 if(self._num_of_processed_instances % self._chunk_size == 0):
                     print("Instance {}".format(self._num_of_processed_instances))
-                    self._update_classifiers(clf_num_1 = 1, clf_num_2 = 1)
+                    self._update_classifiers(clf_nums = [])
 
         else:
             print("Something wrong with the data...")
@@ -63,23 +65,34 @@ class GooweMS(Goowe):
             raise ValueError
 
     def _update_classifiers(self, clf_nums = []):
+        self._classifier_indices = []
         classifiers = []
-        weights_1 = np.asarray(self._goowe_1.get_weights())
-        weights_2 = np.asarray(self._goowe_2.get_weights())
-        crr_clfs_1 = self._goowe_1.get_number_of_current_classifiers()
-        crr_clfs_2 = self._goowe_2.get_number_of_current_classifiers()
-        p_1 = clf_num_1 / (clf_num_1 + clf_num_2)
-        p_2 = clf_num_2 / (clf_num_1 + clf_num_2)
+        weights = []
+        crr_clfs = []
+        ps = []
+        indices = []
+        clfs = []
+        if(clf_nums == []):
+            clf_nums = np.ones(self._num_streams).tolist()
+        sum_clf_nums = sum(clf_nums)
+        for j in range(self._num_streams):
+            weights.append(np.asarray(self._goowes[j].get_weights()))
+            crr_clfs.append(self._goowes[j].get_number_of_current_classifiers())
+            #ps.append(max(clf_nums[j] / sum_clf_nums, 1.))
+            ps.append((clf_nums[j] / sum_clf_nums) * self._num_of_max_classifiers)
+            indices_j = weights[j].argsort()[(-1) * round(ps[j] * crr_clfs[j]):][int(ps[j]*-1):]
+            #print('vvvv', int(ps[j]*-1))
+            #print('wwww', indices_j)
+            #print(indices_j)
+            #print(weights[j])
+            indices.append(indices_j)
+            clfs_j = np.asarray(self._goowes[j].get_classifiers()[indices_j])
+            clfs_j = np.asarray(clfs_j[clfs_j != np.array(None)]).tolist()
+            classifiers += clfs_j
+            self._classifier_indices += indices_j.tolist()
         if(self._num_of_current_classifiers > 0):
             self._adjust_weights()
-        indices_1 = weights_1.argsort()[(-1) * round(p_1 * crr_clfs_1):][::-1]
-        indices_2 = weights_2.argsort()[(-1) * round(p_2 * crr_clfs_2):][::-1]
-        clfs_1 = self._goowe_1.get_classifiers()[indices_1]
-        clfs_2 = self._goowe_2.get_classifiers()[indices_2]
-        clfs_1 = np.asarray(clfs_1[clfs_1 != np.array(None)]).tolist()
-        clfs_2 = np.asarray(clfs_2[clfs_2 != np.array(None)]).tolist()
-        classifiers = clfs_1 + clfs_2
-        classifiers = classifiers[:self._num_of_max_classifiers]
+        #classifiers = classifiers[:self._num_of_max_classifiers]
         self._classifiers = np.asarray(classifiers)
         self._num_of_current_classifiers = len(self._classifiers)
         if(self._num_of_current_classifiers > 0):
@@ -102,7 +115,7 @@ class GooweMS(Goowe):
         print(self._classifiers)
         print('===========================')
         '''
-
+    """
     def _update_classifiers(self, clf_num_1 = 1, clf_num_2 = 1):
         classifiers = []
         weights_1 = np.asarray(self._goowe_1.get_weights())
@@ -143,7 +156,7 @@ class GooweMS(Goowe):
         print(self._classifiers)
         print('===========================')
         '''
-
+    """
     def prepare_post_analysis_req(self, num_features, num_targets, num_classes, target_values, record=False):
         super().prepare_post_analysis_req(num_features, num_targets, num_classes, target_values, record=False)
 
@@ -274,7 +287,6 @@ class GooweMS(Goowe):
         #print('weights: ', weights)
         #print('component preds: ', components_preds)
         #print('weighted ensemble vote: ', weighted_ensemble_vote)
-
         return weighted_ensemble_vote
 
     def reset(self):
@@ -294,3 +306,6 @@ class GooweMS(Goowe):
 
     def get_number_of_max_classifiers(self):
         super().get_number_of_max_classifiers()
+
+    def get_classifer_indices(self):
+        return self._classifier_indices
